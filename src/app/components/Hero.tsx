@@ -39,7 +39,7 @@ export function Hero() {
       >
         <div className="absolute inset-0 bg-[#0a0a0a]/70 z-10" />
         <div
-          className="h-[120vh] w-full bg-cover bg-center bg-[url(./public/1.jpg)]"
+          className="h-[120vh] w-full bg-cover bg-center bg-[url(/1.jpg)]"
 
         />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#0a0a0a]/40 to-[#0a0a0a] z-10" />

@@ -64,7 +64,7 @@ export function AboutSection() {
             className="relative h-[400px] sm:h-[500px] md:h-[600px] overflow-hidden order-first lg:order-last"
           >
             <div
-              className="h-full w-full bg-cover bg-center bg-[url(./public/11.jpg)]"
+              className="h-full w-full bg-cover bg-center bg-[url(/11.jpg)]"
               
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-transparent" />
