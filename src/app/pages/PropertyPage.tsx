@@ -12,7 +12,7 @@ import {
   ChevronRight,
   X,
   Download,
-  Layers,
+  Building,
   Ruler,
   ChevronDown,
   ChevronUp,
@@ -160,11 +160,9 @@ export function PropertyPage() {
             Назад
           </Link>
 
-          
-
           {property.gallery.length > 1 && (
             <>
-              {/* Navigation Buttons - видимые всегда */}
+              {/* Navigation Buttons */}
               <button
                 onClick={prevImage}
                 className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 sm:w-11 sm:h-11 bg-black/60 border border-white/20 hover:border-[#d4af37] transition-all flex items-center justify-center rounded-full active:scale-95"
@@ -252,7 +250,7 @@ export function PropertyPage() {
 
           {/* MAIN INFO */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-12 sm:mb-16">
-            <Info icon={Layers} label="Квартир" value={property.units} />
+            <Info icon={Building} label="Квартир" value={property.units} />
             <Info icon={Ruler} label="Площадь" value={property.size} />
             <Info icon={Home} label="Спальни" value={property.specs.bedrooms} />
             <Info icon={Building2} label="Ванные" value={property.specs.bathrooms} />
@@ -405,7 +403,6 @@ export function PropertyPage() {
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.3 }}
                 onClick={(e) => e.stopPropagation()}
-                // Включение зума на мобильных
                 style={{
                   WebkitTouchCallout: 'default',
                   touchAction: isMobile ? 'pan-y pinch-zoom' : 'auto'
@@ -422,7 +419,7 @@ export function PropertyPage() {
           </>
         )}
       </AnimatePresence>
-
+        
       {/* LIGHTBOX FOR PLANS */}
       <AnimatePresence>
         {activePlan && (
@@ -454,13 +451,11 @@ export function PropertyPage() {
                 className="max-h-[80vh] max-w-[90vw] sm:max-h-[85vh] sm:max-w-[85vw] rounded-lg shadow-2xl object-contain"
                 alt="Увеличенный план квартиры"
                 onClick={(e) => e.stopPropagation()}
-                // Включение зума на мобильных
                 style={{
                   WebkitTouchCallout: 'default',
                   touchAction: isMobile ? 'pan-y pinch-zoom' : 'auto'
                 }}
               />
-
             </motion.div>
           </>
         )}
@@ -478,5 +473,15 @@ function Info({
   label: string;
   value: string;
 }) {
-
+  return (
+    <div className="p-3 sm:p-4 md:p-5 border border-white/10 rounded-lg hover:border-[#d4af37]/30 transition-colors bg-white/5">
+      <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+        <div className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center border border-[#d4af37]/30 rounded-lg">
+          <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#d4af37]" />
+        </div>
+        <div className="text-xs sm:text-sm text-white/60">{label}</div>
+      </div>
+      <div className="text-base sm:text-lg md:text-xl font-semibold">{value}</div>
+    </div>
+  );
 }
