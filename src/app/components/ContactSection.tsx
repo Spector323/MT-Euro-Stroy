@@ -1,87 +1,133 @@
 import { motion } from "motion/react";
 import { useInView } from "motion/react";
 import { useRef, useState } from "react";
-import { Mail, Phone, MapPin, Send, CheckCircle } from "lucide-react";
+import { Mail, Phone, MapPin, Send, CheckCircle, MessageCircle } from "lucide-react";
 
 export function ContactSection() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-50px" });
   const [formData, setFormData] = useState({
     name: "",
-    email: "",
     phone: "",
     message: "",
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({
     name: "",
-    email: "",
     phone: "",
     message: "",
   });
 
-  const validateEmail = (email: string) => {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(email);
-  };
+  const YOUR_PHONE_NUMBER = "79280928761"; // Твой номер без +7
+  const YOUR_PHONE_WITH_CODE = "+79280928761"; // Твой полный номер для ссылки
 
   const validatePhone = (phone: string) => {
-    const re = /^[\d\s\+\-\(\)]+$/;
-    return re.test(phone) && phone.replace(/\D/g, "").length >= 10;
+    // Убираем все нецифровые символы
+    const cleanPhone = phone.replace(/\D/g, "");
+    return cleanPhone.length >= 10 && cleanPhone.length <= 15;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
 
     // Validation
     const newErrors = {
       name: "",
-      email: "",
       phone: "",
       message: "",
     };
 
-    if (formData.name.length < 2) {
+    if (formData.name.trim().length < 2) {
       newErrors.name = "Имя должно содержать минимум 2 символа";
-    }
-
-    if (!validateEmail(formData.email)) {
-      newErrors.email = "Введите корректный email";
     }
 
     if (!validatePhone(formData.phone)) {
       newErrors.phone = "Введите корректный номер телефона";
     }
 
-    if (formData.message.length < 10) {
-      newErrors.message = "Сообщение должно содержать минимум 10 символов";
+    if (formData.message.trim().length < 5) {
+      newErrors.message = "Сообщение должно содержать минимум 5 символов";
     }
 
     setErrors(newErrors);
 
-    // If no errors, submit
+    // If no errors, send to WhatsApp
     if (!Object.values(newErrors).some((error) => error !== "")) {
-      console.log("Form submitted:", formData);
-      setIsSubmitted(true);
+      try {
+        // Формируем сообщение для WhatsApp
+        const cleanPhone = formData.phone.replace(/\D/g, "");
+        const phoneForMessage = cleanPhone.startsWith("8") 
+          ? `+7${cleanPhone.substring(1)}` 
+          : `+7${cleanPhone}`;
 
-      // Reset form after 3 seconds
-      setTimeout(() => {
-        setFormData({
-          name: "",
-          email: "",
-          phone: "",
-          message: "",
-        });
-        setIsSubmitted(false);
-      }, 3000);
+        const message = `📋 *Новая заявка с сайта МТ Евро Строй*%0A%0A👤 *Имя:* ${formData.name}%0A📱 *Телефон:* ${phoneForMessage}%0A📝 *Сообщение:* ${formData.message}%0A%0A⏰ *Дата:* ${new Date().toLocaleString("ru-RU")}`;
+
+        // Формируем URL для WhatsApp
+        const whatsappUrl = `https://wa.me/${YOUR_PHONE_NUMBER}?text=${message}`;
+        
+        // Открываем WhatsApp в новой вкладке
+        window.open(whatsappUrl, "_blank");
+        
+        // Показываем успешную отправку
+        setIsSubmitted(true);
+        
+        // Reset form after 5 seconds
+        setTimeout(() => {
+          setFormData({
+            name: "",
+            phone: "",
+            message: "",
+          });
+          setIsSubmitted(false);
+        }, 5000);
+
+      } catch (error) {
+        console.error("Error sending to WhatsApp:", error);
+        alert("Произошла ошибка при отправке. Попробуйте еще раз.");
+      } finally {
+        setIsSubmitting(false);
+      }
+    } else {
+      setIsSubmitting(false);
     }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+    
+    // Маска для телефона
+    let formattedValue = value;
+    if (name === "phone") {
+      // Удаляем все нецифровые символы
+      let digits = value.replace(/\D/g, "");
+      
+      // Форматируем номер
+      if (digits.length > 0) {
+        if (digits.startsWith("8")) {
+          digits = "7" + digits.substring(1);
+        }
+        
+        if (digits.length <= 1) {
+          formattedValue = `+7${digits}`;
+        } else if (digits.length <= 4) {
+          formattedValue = `+7 (${digits.substring(1, 4)})`;
+        } else if (digits.length <= 7) {
+          formattedValue = `+7 (${digits.substring(1, 4)}) ${digits.substring(4, 7)}`;
+        } else if (digits.length <= 9) {
+          formattedValue = `+7 (${digits.substring(1, 4)}) ${digits.substring(4, 7)}-${digits.substring(7, 9)}`;
+        } else {
+          formattedValue = `+7 (${digits.substring(1, 4)}) ${digits.substring(4, 7)}-${digits.substring(7, 9)}-${digits.substring(9, 11)}`;
+        }
+      } else {
+        formattedValue = "";
+      }
+    }
+    
     setFormData({
       ...formData,
-      [name]: value,
+      [name]: formattedValue,
     });
 
     // Clear error when user starts typing
@@ -131,7 +177,26 @@ export function ContactSection() {
             transition={{ duration: 1, delay: 0.2 }}
             className="space-y-6 sm:space-y-8 order-last lg:order-first"
           >
-            <a href="tel:+79280935333" className="group block">
+            {/* WhatsApp Button */}
+            <a 
+              href={`https://wa.me/${YOUR_PHONE_NUMBER}`} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="group block"
+            >
+              <div className="flex items-start gap-3 sm:gap-4 p-4 sm:p-6 border border-white/10 hover:border-green-500/50 bg-gradient-to-r from-white/5 to-transparent hover:from-green-500/10 transition-all duration-300">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center border border-green-500/30 group-hover:border-green-500 bg-green-500/10 group-hover:bg-green-500/20 transition-all duration-300 flex-shrink-0 rounded-full">
+                  <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
+                </div>
+                <div>
+                  <div className="mb-1 sm:mb-2 text-white/80 text-sm sm:text-base">Написать в WhatsApp</div>
+                  <div className="text-white/60 text-xs sm:text-sm">{YOUR_PHONE_WITH_CODE}</div>
+                  <div className="text-green-400/80 text-xs sm:text-sm mt-1">Нажмите для быстрой связи</div>
+                </div>
+              </div>
+            </a>
+
+            <a href="tel:+79280928761" className="group block">
               <div className="flex items-start gap-3 sm:gap-4 p-4 sm:p-6 border border-white/10 hover:border-[#d4af37]/50 transition-colors duration-300">
                 <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center border border-[#d4af37]/30 group-hover:border-[#d4af37] transition-colors duration-300 flex-shrink-0">
                   <Phone className="w-4 h-4 sm:w-5 sm:h-5 text-[#d4af37]" />
@@ -144,7 +209,7 @@ export function ContactSection() {
               </div>
             </a>
 
-            <a href="mailto:info@prestige.ru" className="group block">
+            <a href="mailto:stroyinvesting@mail.ru" className="group block">
               <div className="flex items-start gap-3 sm:gap-4 p-4 sm:p-6 border border-white/10 hover:border-[#d4af37]/50 transition-colors duration-300">
                 <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center border border-[#d4af37]/30 group-hover:border-[#d4af37] transition-colors duration-300 flex-shrink-0">
                   <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-[#d4af37]" />
@@ -186,10 +251,23 @@ export function ContactSection() {
                 animate={{ opacity: 1, scale: 1 }}
                 className="flex flex-col items-center justify-center py-16 sm:py-24"
               >
-                <CheckCircle className="w-16 h-16 sm:w-20 sm:h-20 text-[#d4af37] mb-6" />
-                <h3 className="mb-4 text-xl sm:text-2xl text-center">Спасибо за обращение!</h3>
-                <p className="text-white/60 text-center text-sm sm:text-base">
-                  Мы свяжемся с вами в ближайшее время.
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-green-500/20 flex items-center justify-center mb-6">
+                  <CheckCircle className="w-12 h-12 sm:w-16 sm:h-16 text-green-400" />
+                </div>
+                <h3 className="mb-4 text-xl sm:text-2xl text-center">Заявка отправлена!</h3>
+                <p className="text-white/60 text-center text-sm sm:text-base mb-6">
+                  Сейчас откроется WhatsApp для отправки сообщения.
+                </p>
+                <p className="text-white/40 text-xs text-center">
+                  Если WhatsApp не открылся автоматически,<br />
+                  <a 
+                    href={`https://wa.me/${YOUR_PHONE_NUMBER}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-green-400 hover:text-green-300 underline"
+                  >
+                    нажмите здесь для отправки вручную
+                  </a>
                 </p>
               </motion.div>
             ) : (
@@ -202,8 +280,9 @@ export function ContactSection() {
                       placeholder="Ваше имя *"
                       value={formData.name}
                       onChange={handleChange}
-                      className={`w-full px-4 sm:px-6 py-3 sm:py-4 bg-white/5 border ${errors.name ? "border-red-500" : "border-white/10"
-                        } focus:border-[#d4af37] text-white placeholder:text-white/40 outline-none transition-colors duration-300 text-sm sm:text-base`}
+                      className={`w-full px-4 sm:px-6 py-3 sm:py-4 bg-white/5 border ${
+                        errors.name ? "border-red-500" : "border-white/10"
+                      } focus:border-[#d4af37] text-white placeholder:text-white/40 outline-none transition-colors duration-300 text-sm sm:text-base`}
                       required
                     />
                     {errors.name && (
@@ -217,8 +296,9 @@ export function ContactSection() {
                       placeholder="Номер телефона *"
                       value={formData.phone}
                       onChange={handleChange}
-                      className={`w-full px-4 sm:px-6 py-3 sm:py-4 bg-white/5 border ${errors.phone ? "border-red-500" : "border-white/10"
-                        } focus:border-[#d4af37] text-white placeholder:text-white/40 outline-none transition-colors duration-300 text-sm sm:text-base`}
+                      className={`w-full px-4 sm:px-6 py-3 sm:py-4 bg-white/5 border ${
+                        errors.phone ? "border-red-500" : "border-white/10"
+                      } focus:border-[#d4af37] text-white placeholder:text-white/40 outline-none transition-colors duration-300 text-sm sm:text-base`}
                       required
                     />
                     {errors.phone && (
@@ -234,8 +314,9 @@ export function ContactSection() {
                     value={formData.message}
                     onChange={handleChange}
                     rows={6}
-                    className={`w-full px-4 sm:px-6 py-3 sm:py-4 bg-white/5 border ${errors.message ? "border-red-500" : "border-white/10"
-                      } focus:border-[#d4af37] text-white placeholder:text-white/40 outline-none resize-none transition-colors duration-300 text-sm sm:text-base`}
+                    className={`w-full px-4 sm:px-6 py-3 sm:py-4 bg-white/5 border ${
+                      errors.message ? "border-red-500" : "border-white/10"
+                    } focus:border-[#d4af37] text-white placeholder:text-white/40 outline-none resize-none transition-colors duration-300 text-sm sm:text-base`}
                     required
                   />
                   {errors.message && (
@@ -243,16 +324,37 @@ export function ContactSection() {
                   )}
                 </div>
 
-                <button
-                  type="submit"
-                  className="group w-full md:w-auto px-10 sm:px-12 py-4 sm:py-5 bg-[#d4af37] text-[#0a0a0a] hover:bg-[#c49d2e] transition-all duration-300 flex items-center justify-center gap-2 sm:gap-3 text-sm sm:text-base"
-                >
-                  <span>Отправить сообщение</span>
-                  <Send className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform duration-300" />
-                </button>
+                <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-start sm:items-center">
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className={`group w-full sm:w-auto px-10 sm:px-12 py-4 sm:py-5 ${
+                      isSubmitting 
+                        ? "bg-gray-600 cursor-not-allowed" 
+                        : "bg-green-600 hover:bg-green-700"
+                    } text-white transition-all duration-300 flex items-center justify-center gap-2 sm:gap-3 text-sm sm:text-base font-medium`}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>Отправка...</span>
+                      </>
+                    ) : (
+                      <>
+                        <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                        <span>Отправить в WhatsApp</span>
+                      </>
+                    )}
+                  </button>
+
+                  <div className="text-white/50 text-xs sm:text-sm">
+                    После отправки откроется WhatsApp<br />
+                    для подтверждения отправки сообщения
+                  </div>
+                </div>
 
                 <p className="text-white/40 text-xs sm:text-sm">
-                  * Поля, обязательные для заполнения
+                  * Поля, обязательные для заполнения. Сообщение будет отправлено в WhatsApp менеджеру.
                 </p>
               </form>
             )}
