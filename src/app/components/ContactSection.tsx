@@ -1,7 +1,7 @@
 import { motion } from "motion/react";
 import { useInView } from "motion/react";
-import { useRef, useState } from "react";
-import { Mail, Phone, MapPin, Send, CheckCircle, MessageCircle } from "lucide-react";
+import { useRef, useState, useEffect } from "react";
+import { Mail, Phone, MapPin, CheckCircle, MessageCircle } from "lucide-react";
 
 export function ContactSection() {
   const ref = useRef(null);
@@ -18,21 +18,134 @@ export function ContactSection() {
     phone: "",
     message: "",
   });
+  const [phoneTouched, setPhoneTouched] = useState(false);
 
-  const YOUR_PHONE_NUMBER = "79280928761"; // Твой номер без +7
-  const YOUR_PHONE_WITH_CODE = "+79280928761"; // Твой полный номер для ссылки
+  const YOUR_PHONE_NUMBER = "79280935333";
+  const YOUR_PHONE_WITH_CODE = "+7 (928) 093-53-33";
 
-  const validatePhone = (phone: string) => {
-    // Убираем все нецифровые символы
-    const cleanPhone = phone.replace(/\D/g, "");
-    return cleanPhone.length >= 10 && cleanPhone.length <= 15;
+  // Используем ref для отслеживания позиции курсора
+  const phoneInputRef = useRef<HTMLInputElement>(null);
+  const [cursorPosition, setCursorPosition] = useState<number | null>(null);
+
+  // Улучшенная функция форматирования с сохранением позиции курсора
+  const formatPhone = (value: string, cursorPos?: number): { formatted: string; newCursorPos: number } => {
+    // Убираем все нецифровые символы кроме + в начале
+    let digits = value.replace(/\D/g, "");
+    
+    // Если начинается с 7 или 8, убираем первую цифру (она уже в +7)
+    if (digits.length > 0 && (digits[0] === '7' || digits[0] === '8')) {
+      digits = digits.substring(1);
+    }
+    
+    // Ограничиваем до 10 цифр (российский номер)
+    digits = digits.substring(0, 10);
+    
+    // Форматируем
+    let formatted = "+7 ";
+    let newCursor = 3; // Начинаем после "+7 "
+    
+    if (digits.length > 0) {
+      formatted += `(${digits.substring(0, 3)}`;
+      newCursor += 1 + Math.min(3, digits.length); // Позиция после скобки и цифр
+      
+      if (digits.length > 3) {
+        formatted += `) ${digits.substring(3, 6)}`;
+        newCursor += 2 + Math.min(3, digits.length - 3); // Позиция после ") " и цифр
+        
+        if (digits.length > 6) {
+          formatted += `-${digits.substring(6, 8)}`;
+          newCursor += 1 + Math.min(2, digits.length - 6); // Позиция после "-" и цифр
+          
+          if (digits.length > 8) {
+            formatted += `-${digits.substring(8, 10)}`;
+            newCursor += 1 + Math.min(2, digits.length - 8); // Позиция после "-" и цифр
+          }
+        }
+      } else if (digits.length === 3) {
+        formatted += ")";
+        newCursor += 1; // Позиция после закрывающей скобки
+      }
+    }
+    
+    // Корректируем позицию курсора на основе предыдущей позиции
+    if (cursorPos !== undefined) {
+      // Если курсор был в старом значении, пытаемся сохранить его логическую позицию
+      const oldDigits = value.replace(/\D/g, "");
+      const oldDigitPos = getDigitPositionFromCursor(value, cursorPos);
+      
+      if (oldDigitPos !== null) {
+        // Находим новую позицию курсора на основе позиции цифры
+        newCursor = getCursorPositionFromDigit(formatted, oldDigitPos);
+      }
+    }
+    
+    return { formatted, newCursorPos: newCursor };
+  };
+
+  // Функция для получения позиции цифры по позиции курсора
+  const getDigitPositionFromCursor = (value: string, cursorPos: number): number | null => {
+    const digitsBeforeCursor = value.substring(0, cursorPos).replace(/\D/g, "");
+    return digitsBeforeCursor.length;
+  };
+
+  // Функция для получения позиции курсора по позиции цифры
+  const getCursorPositionFromDigit = (value: string, digitPos: number): number => {
+    let digitCount = 0;
+    for (let i = 0; i < value.length; i++) {
+      if (/\d/.test(value[i])) {
+        digitCount++;
+        if (digitCount === digitPos) {
+          return i + 1; // Курсор после цифры
+        }
+      }
+    }
+    return value.length; // Если цифра не найдена, ставим в конец
+  };
+
+  // Улучшенная функция валидации
+  const validatePhone = (phone: string): { isValid: boolean; error: string; cleanNumber: string } => {
+    const digits = phone.replace(/\D/g, "");
+    
+    // Убираем начальную 7 или 8 если есть
+    let cleanDigits = digits;
+    if (digits.length > 0 && (digits[0] === '7' || digits[0] === '8')) {
+      cleanDigits = digits.substring(1);
+    }
+    
+    if (cleanDigits.length === 0) {
+      return { isValid: false, error: "Введите номер телефона", cleanNumber: "" };
+    }
+    
+    if (cleanDigits.length !== 10) {
+      return { isValid: false, error: "Номер должен содержать 10 цифр", cleanNumber: digits };
+    }
+    
+    const operatorCode = cleanDigits.substring(0, 3);
+    const validOperatorCodes = [
+      '900', '901', '902', '903', '904', '905', '906', '908', '909', 
+      '910', '911', '912', '913', '914', '915', '916', '917', '918', '919',
+      '920', '921', '922', '923', '924', '925', '926', '927', '928', '929',
+      '930', '931', '932', '933', '934', '936', '937', '938', '939',
+      '950', '951', '952', '953', '954', '955', '956', '958',
+      '960', '961', '962', '963', '964', '965', '966', '967', '968', '969',
+      '970', '971', '977', '978',
+      '980', '981', '982', '983', '984', '985', '986', '987', '988', '989',
+      '991', '992', '993', '994', '995', '996', '997', '999'
+    ];
+    
+    if (!validOperatorCodes.includes(operatorCode)) {
+      return { isValid: false, error: "Неверный код оператора", cleanNumber: digits };
+    }
+    
+    const cleanNumber = `7${cleanDigits}`;
+    return { isValid: true, error: "", cleanNumber };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setPhoneTouched(true);
 
-    // Validation
     const newErrors = {
       name: "",
       phone: "",
@@ -43,37 +156,29 @@ export function ContactSection() {
       newErrors.name = "Имя должно содержать минимум 2 символа";
     }
 
-    if (!validatePhone(formData.phone)) {
-      newErrors.phone = "Введите корректный номер телефона";
-    }
-
     if (formData.message.trim().length < 5) {
       newErrors.message = "Сообщение должно содержать минимум 5 символов";
     }
 
+    const phoneValidation = validatePhone(formData.phone);
+    if (!phoneValidation.isValid) {
+      newErrors.phone = phoneValidation.error;
+    }
+
     setErrors(newErrors);
 
-    // If no errors, send to WhatsApp
     if (!Object.values(newErrors).some((error) => error !== "")) {
       try {
-        // Формируем сообщение для WhatsApp
-        const cleanPhone = formData.phone.replace(/\D/g, "");
-        const phoneForMessage = cleanPhone.startsWith("8") 
-          ? `+7${cleanPhone.substring(1)}` 
-          : `+7${cleanPhone}`;
+        const cleanNumber = phoneValidation.cleanNumber;
+        const formattedPhone = `+7 (${cleanNumber.substring(1, 4)}) ${cleanNumber.substring(4, 7)}-${cleanNumber.substring(7, 9)}-${cleanNumber.substring(9, 11)}`;
 
-        const message = `📋 *Новая заявка с сайта МТ Евро Строй*%0A%0A👤 *Имя:* ${formData.name}%0A📱 *Телефон:* ${phoneForMessage}%0A📝 *Сообщение:* ${formData.message}%0A%0A⏰ *Дата:* ${new Date().toLocaleString("ru-RU")}`;
+        const message = `📋 *Новая заявка с сайта МТ Евро Строй*%0A%0A👤 *Имя:* ${formData.name.trim()}%0A📱 *Телефон:* ${formattedPhone}%0A📝 *Сообщение:* ${formData.message.trim()}%0A%0A⏰ *Дата:* ${new Date().toLocaleString("ru-RU")}`;
 
-        // Формируем URL для WhatsApp
         const whatsappUrl = `https://wa.me/${YOUR_PHONE_NUMBER}?text=${message}`;
-        
-        // Открываем WhatsApp в новой вкладке
         window.open(whatsappUrl, "_blank");
         
-        // Показываем успешную отправку
         setIsSubmitted(true);
         
-        // Reset form after 5 seconds
         setTimeout(() => {
           setFormData({
             name: "",
@@ -81,6 +186,7 @@ export function ContactSection() {
             message: "",
           });
           setIsSubmitted(false);
+          setPhoneTouched(false);
         }, 5000);
 
       } catch (error) {
@@ -94,48 +200,109 @@ export function ContactSection() {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { value, selectionStart } = e.target;
     
-    // Маска для телефона
-    let formattedValue = value;
-    if (name === "phone") {
-      // Удаляем все нецифровые символы
-      let digits = value.replace(/\D/g, "");
-      
-      // Форматируем номер
-      if (digits.length > 0) {
-        if (digits.startsWith("8")) {
-          digits = "7" + digits.substring(1);
-        }
-        
-        if (digits.length <= 1) {
-          formattedValue = `+7${digits}`;
-        } else if (digits.length <= 4) {
-          formattedValue = `+7 (${digits.substring(1, 4)})`;
-        } else if (digits.length <= 7) {
-          formattedValue = `+7 (${digits.substring(1, 4)}) ${digits.substring(4, 7)}`;
-        } else if (digits.length <= 9) {
-          formattedValue = `+7 (${digits.substring(1, 4)}) ${digits.substring(4, 7)}-${digits.substring(7, 9)}`;
-        } else {
-          formattedValue = `+7 (${digits.substring(1, 4)}) ${digits.substring(4, 7)}-${digits.substring(7, 9)}-${digits.substring(9, 11)}`;
-        }
-      } else {
-        formattedValue = "";
+    // Получаем позицию курсора перед изменением
+    const cursorBefore = selectionStart || 0;
+    
+    // Форматируем новое значение
+    const { formatted, newCursorPos } = formatPhone(value, cursorBefore);
+    
+    // Устанавливаем новое значение
+    setFormData(prev => ({
+      ...prev,
+      phone: formatted
+    }));
+    
+    // Сохраняем позицию курсора для установки после рендера
+    setCursorPosition(newCursorPos);
+    
+    // Валидируем если поле было тронуто
+    if (phoneTouched) {
+      const phoneValidation = validatePhone(formatted);
+      setErrors(prev => ({
+        ...prev,
+        phone: phoneValidation.error
+      }));
+    }
+  };
+
+  // Устанавливаем позицию курсора после рендера
+  useEffect(() => {
+    if (cursorPosition !== null && phoneInputRef.current) {
+      phoneInputRef.current.setSelectionRange(cursorPosition, cursorPosition);
+      setCursorPosition(null);
+    }
+  }, [cursorPosition, formData.phone]);
+
+  const handlePhoneBlur = () => {
+    setPhoneTouched(true);
+    if (formData.phone) {
+      const phoneValidation = validatePhone(formData.phone);
+      if (!phoneValidation.isValid) {
+        setErrors(prev => ({
+          ...prev,
+          phone: phoneValidation.error
+        }));
       }
     }
-    
-    setFormData({
-      ...formData,
-      [name]: formattedValue,
-    });
+  };
 
-    // Clear error when user starts typing
-    if (errors[name as keyof typeof errors]) {
-      setErrors({
-        ...errors,
-        [name]: "",
-      });
+  const handlePhoneFocus = () => {
+    if (!formData.phone) {
+      setFormData(prev => ({
+        ...prev,
+        phone: "+7 ("
+      }));
+    }
+  };
+
+  const handlePhoneKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const input = e.target as HTMLInputElement;
+    const cursorPos = input.selectionStart || 0;
+    
+    // Если нажали Backspace и курсор в начале форматированной части (+7)
+    if (e.key === 'Backspace' && cursorPos <= 3) {
+      e.preventDefault();
+      return;
+    }
+    
+    // Если нажали Delete и удаляем форматирующие символы
+    if (e.key === 'Delete') {
+      const value = input.value;
+      const nextChar = value[cursorPos];
+      
+      // Если следующий символ - форматирующий (скобка, пробел, дефис)
+      if (nextChar && !/\d/.test(nextChar)) {
+        e.preventDefault();
+        // Перемещаем курсор на следующую позицию
+        setTimeout(() => {
+          input.setSelectionRange(cursorPos + 1, cursorPos + 1);
+        }, 0);
+      }
+    }
+  };
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({
+      ...prev,
+      name: e.target.value
+    }));
+    
+    if (errors.name) {
+      setErrors(prev => ({ ...prev, name: "" }));
+    }
+  };
+
+  const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setFormData(prev => ({
+      ...prev,
+      message: e.target.value
+    }));
+    
+    if (errors.message) {
+      setErrors(prev => ({ ...prev, message: "" }));
     }
   };
 
@@ -184,7 +351,7 @@ export function ContactSection() {
               rel="noopener noreferrer"
               className="group block"
             >
-              <div className="flex items-start gap-3 sm:gap-4 p-4 sm:p-6 border border-white/10 hover:border-green-500/50 bg-gradient-to-r from-white/5 to-transparent hover:from-green-500/10 transition-all duration-300">
+              <div className="flex items-start gap-3 sm:gap-4 p-4 sm:p-6 border border-white/10 hover:border-green-500/50 bg-gradient-to-r to-transparent hover:from-green-500/10 transition-all duration-300">
                 <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center border border-green-500/30 group-hover:border-green-500 bg-green-500/10 group-hover:bg-green-500/20 transition-all duration-300 flex-shrink-0 rounded-full">
                   <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
                 </div>
@@ -196,7 +363,7 @@ export function ContactSection() {
               </div>
             </a>
 
-            <a href="tel:+79280928761" className="group block">
+            <a href="tel:+79280935333" className="group block">
               <div className="flex items-start gap-3 sm:gap-4 p-4 sm:p-6 border border-white/10 hover:border-[#d4af37]/50 transition-colors duration-300">
                 <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center border border-[#d4af37]/30 group-hover:border-[#d4af37] transition-colors duration-300 flex-shrink-0">
                   <Phone className="w-4 h-4 sm:w-5 sm:h-5 text-[#d4af37]" />
@@ -279,7 +446,7 @@ export function ContactSection() {
                       name="name"
                       placeholder="Ваше имя *"
                       value={formData.name}
-                      onChange={handleChange}
+                      onChange={handleNameChange}
                       className={`w-full px-4 sm:px-6 py-3 sm:py-4 bg-white/5 border ${
                         errors.name ? "border-red-500" : "border-white/10"
                       } focus:border-[#d4af37] text-white placeholder:text-white/40 outline-none transition-colors duration-300 text-sm sm:text-base`}
@@ -291,19 +458,29 @@ export function ContactSection() {
                   </div>
                   <div>
                     <input
+                      ref={phoneInputRef}
                       type="tel"
                       name="phone"
-                      placeholder="Номер телефона *"
+                      placeholder="+7 (___) ___-__-__"
                       value={formData.phone}
-                      onChange={handleChange}
+                      onChange={handlePhoneChange}
+                      onBlur={handlePhoneBlur}
+                      onFocus={handlePhoneFocus}
+                      onKeyDown={handlePhoneKeyDown}
                       className={`w-full px-4 sm:px-6 py-3 sm:py-4 bg-white/5 border ${
-                        errors.phone ? "border-red-500" : "border-white/10"
+                        errors.phone ? "border-red-500" : phoneTouched && formData.phone && !errors.phone ? "border-green-500/50" : "border-white/10"
                       } focus:border-[#d4af37] text-white placeholder:text-white/40 outline-none transition-colors duration-300 text-sm sm:text-base`}
                       required
                     />
-                    {errors.phone && (
-                      <p className="mt-2 text-red-500 text-xs sm:text-sm">{errors.phone}</p>
-                    )}
+                    {errors.phone ? (
+                      <p className="mt-2 text-red-500 text-xs sm:text-sm">
+                        {errors.phone}
+                      </p>
+                    ) : phoneTouched && formData.phone && !errors.phone ? (
+                      <p className="mt-2 text-green-500 text-xs sm:text-sm">
+                        ✓ Корректный номер
+                      </p>
+                    ) : null}
                   </div>
                 </div>
 
@@ -312,7 +489,7 @@ export function ContactSection() {
                     name="message"
                     placeholder="Расскажите о ваших требованиях... *"
                     value={formData.message}
-                    onChange={handleChange}
+                    onChange={handleMessageChange}
                     rows={6}
                     className={`w-full px-4 sm:px-6 py-3 sm:py-4 bg-white/5 border ${
                       errors.message ? "border-red-500" : "border-white/10"
@@ -346,15 +523,10 @@ export function ContactSection() {
                       </>
                     )}
                   </button>
-
-                  <div className="text-white/50 text-xs sm:text-sm">
-                    После отправки откроется WhatsApp<br />
-                    для подтверждения отправки сообщения
-                  </div>
                 </div>
 
                 <p className="text-white/40 text-xs sm:text-sm">
-                  * Поля, обязательные для заполнения. Сообщение будет отправлено в WhatsApp менеджеру.
+                  * Поля, обязательные для заполнения
                 </p>
               </form>
             )}
